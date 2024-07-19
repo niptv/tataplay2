@@ -1,6 +1,8 @@
 import requests
 import json
 import logging
+import subprocess
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -34,14 +36,37 @@ def transform_data(api_data):
                         transformed_data.append(transformed_channel)
     return transformed_data
 
+def read_keys_json():
+    try:
+        with open('keys.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+
+def write_keys_json(data):
+    with open('keys.json', 'w') as f:
+        json.dump(data, f, indent=2)
+
+def has_content_changed(new_data):
+    current_data = read_keys_json()
+    if current_data != new_data:
+        write_keys_json(new_data)
+        logging.info("Data saved to keys.json")
+        return True
+    else:
+        logging.info("No changes detected in keys.json. Skipping update.")
+        return False
+
 def main():
     api_data = fetch_api(API_URL, RETRIES)
     if api_data:
         transformed_data = transform_data(api_data)
         if transformed_data:
-            with open("keys.json", "w") as f:
-                json.dump(transformed_data, f, indent=2)
-                logging.info("Data saved to keys.json")
+            if has_content_changed(transformed_data):
+                # Commit and push changes if needed (Note: This part would be handled by GitHub Actions workflow)
+                logging.info("Changes detected and saved to keys.json.")
+            else:
+                logging.info("No changes detected in transformed data. Skipping update.")
         else:
             logging.warning("No clear keys found in API response")
     else:
